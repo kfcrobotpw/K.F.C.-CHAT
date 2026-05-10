@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "realName": { "type": "string" },
+        "studentId": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "isExecutive": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "warnings": { "type": "integer" }
+      },
+      "required": ["uid", "email", "isAdmin", "isExecutive"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Chat room group or direct message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["dm", "group"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "name": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "string" },
+        "lastActivity": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "participants", "createdAt"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Official club announcements",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "attachment": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "url": { "type": "string" },
+            "type": { "type": "string" },
+            "size": { "type": "integer" }
+          }
+        }
+      },
+      "required": ["text", "senderId", "timestamp", "roomId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Chat rooms"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a room"
+    },
+    "/notices/{noticeId}": {
+      "schema": "Notice",
+      "description": "Club notices"
+    }
+  }
+}

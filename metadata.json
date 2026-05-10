@@ -1,0 +1,6 @@
+{
+  "name": "K.F.C. Robot Club Chat",
+  "description": "Internal communication platform for the K.F.C. robot club at Yongin Youth Center, featuring admin controls and real-time messaging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

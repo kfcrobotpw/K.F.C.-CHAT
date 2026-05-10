@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // Hard check for the specific admin email as per user request
+      return isVerified() && request.auth.token.email == 'kfcrobotpw@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'isAdmin']) &&
+             data.keys().size() <= 6 &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.isAdmin is bool &&
+             (data.isAdmin == false || (data.isAdmin == true && isAdmin())) &&
+             data.uid is string &&
+             data.email is string;
+    }
+
+    // Message Validation
+    function isValidMessage(data) {
+      return data.keys().hasAll(['text', 'senderId', 'timestamp']) &&
+             data.keys().size() <= 5 &&
+             data.text is string &&
+             data.text.size() > 0 &&
+             data.text.size() <= 1000 &&
+             data.senderId == request.auth.uid &&
+             data.timestamp == request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin(); // Only admin can list all users
+      allow create: if isVerified() && userId == request.auth.uid && isValidUser(incoming());
+      allow update: if isVerified() && userId == request.auth.uid && isValidUser(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastSeen']);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isVerified() && isValidId(messageId) && isValidMessage(incoming());
+      allow update: if false; // Messages are immutable
+      allow delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
+    }
+  }
+}
