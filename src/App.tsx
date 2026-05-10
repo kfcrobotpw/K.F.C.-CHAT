@@ -105,8 +105,8 @@ interface ClubMember {
   studentId?: string;
   phoneNumber?: string;
   role?: string;
-  isAdmin: boolean;
-  isExecutive: boolean;
+  isAdmin?: boolean;
+  isExecutive?: boolean;
   warnings?: number;
   lastSeen: any;
 }
@@ -167,11 +167,20 @@ export default function App() {
             setShowOnboarding(true);
           } else {
             const data = userDoc.data() as ClubMember;
-            setIsExecutive(data.isExecutive || data.isAdmin);
+            const needsMigration = !('isExecutive' in data);
+            
+            setIsExecutive(data.isExecutive || data.isAdmin || (currentUser.email === ADMIN_EMAIL));
+            
+            const updatePayload: any = { lastSeen: serverTimestamp() };
+            if (needsMigration) {
+               updatePayload.isExecutive = !!(data.isAdmin || (currentUser.email === ADMIN_EMAIL));
+            }
+            
+            await updateDoc(userRef, updatePayload);
+            
             if (!data.realName || !data.phoneNumber) {
               setShowOnboarding(true);
             }
-            await updateDoc(userRef, { lastSeen: serverTimestamp() });
           }
         } catch (error) {
           console.error("Error syncing user:", error);
@@ -235,14 +244,26 @@ export default function App() {
     };
   }, [user, isAdmin, activeTab]);
 
+  const EXECUTIVE_ROOM_ID = 'executive_room';
+
   useEffect(() => {
-    if (!user || !selectedRoom) {
+    const targetRoomId = (activeTab === 'chat' || activeTab === 'supervision') 
+      ? (selectedRoom ? selectedRoom.id : EXECUTIVE_ROOM_ID)
+      : null;
+
+    if (!targetRoomId) {
+      setMessages([]);
+      return;
+    }
+
+    // Security check for executive room
+    if (targetRoomId === EXECUTIVE_ROOM_ID && !isExecutive && !isAdmin) {
       setMessages([]);
       return;
     }
     
     const qMsg = query(
-      collection(db, 'rooms', selectedRoom.id, 'messages'), 
+      collection(db, 'rooms', targetRoomId, 'messages'), 
       orderBy('timestamp', 'desc'), 
       limit(50)
     );
@@ -254,11 +275,11 @@ export default function App() {
       })) as Message[];
       setMessages(msgs.reverse());
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `rooms/${selectedRoom.id}/messages`);
+      handleFirestoreError(error, OperationType.LIST, `rooms/${targetRoomId}/messages`);
     });
 
     return () => unsubMsg();
-  }, [user, selectedRoom]);
+  }, [user, selectedRoom, isExecutive, isAdmin, activeTab]);
 
   useEffect(() => {
     if (scrollRef.current && activeTab === 'chat') {
@@ -268,15 +289,20 @@ export default function App() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || (!newMessage.trim() && !attachment) || !selectedRoom) return;
+    if (!user || (!newMessage.trim() && !attachment)) return;
+
+    const targetRoomId = selectedRoom ? selectedRoom.id : EXECUTIVE_ROOM_ID;
+    
+    // Safety check for executive room
+    if (targetRoomId === EXECUTIVE_ROOM_ID && !isExecutive && !isAdmin) return;
 
     try {
-      const msgRef = collection(db, 'rooms', selectedRoom.id, 'messages');
+      const msgRef = collection(db, 'rooms', targetRoomId, 'messages');
       const payload: any = {
-        roomId: selectedRoom.id,
+        roomId: targetRoomId,
         text: newMessage,
         senderId: user.uid,
-        senderName: user.displayName || 'Guest',
+        senderName: user.displayName || 'Anonymous User',
         senderPhoto: user.photoURL || '',
         timestamp: serverTimestamp()
       };
@@ -287,15 +313,38 @@ export default function App() {
 
       await addDoc(msgRef, payload);
       
-      await updateDoc(doc(db, 'rooms', selectedRoom.id), {
-        lastMessage: attachment ? `[파일: ${attachment.name}] ${newMessage}` : newMessage,
-        lastActivity: serverTimestamp()
-      });
+      // Update room activity
+      if (selectedRoom) {
+        await updateDoc(doc(db, 'rooms', targetRoomId), {
+          lastMessage: attachment ? `[파일: ${attachment.name}] ${newMessage}` : newMessage,
+          lastActivity: serverTimestamp()
+        });
+      } else {
+        // Handle executive room persistence (create if not exists)
+        const execRoomRef = doc(db, 'rooms', EXECUTIVE_ROOM_ID);
+        const execRoomDoc = await getDoc(execRoomRef);
+        if (!execRoomDoc.exists()) {
+           await setDoc(execRoomRef, {
+             name: '임원톡방',
+             participants: [user.uid],
+             isExecutiveRoom: true,
+             createdBy: 'system',
+             lastMessage: attachment ? `[파일: ${attachment.name}] ${newMessage}` : newMessage,
+             lastActivity: serverTimestamp(),
+             createdAt: serverTimestamp()
+           });
+        } else {
+           await updateDoc(execRoomRef, {
+             lastMessage: attachment ? `[파일: ${attachment.name}] ${newMessage}` : newMessage,
+             lastActivity: serverTimestamp()
+           });
+        }
+      }
       
       setNewMessage('');
       setAttachment(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `rooms/${selectedRoom.id}/messages`);
+      handleFirestoreError(error, OperationType.CREATE, `rooms/${targetRoomId}/messages`);
     }
   };
 
@@ -655,42 +704,73 @@ export default function App() {
                             src={msg.senderPhoto} 
                             alt="" 
                             className={`h-11 w-11 shrink-0 rounded-2xl object-cover shadow-md border-2 ${
-                              msg.senderId === ADMIN_EMAIL ? 'border-amber-400' : 'border-white'
+                              msg.senderId === ADMIN_EMAIL ? 'border-black' : 'border-neutral-50'
                             }`} 
                           />
-                          <div className={`max-w-[70%] space-y-1 ${msg.senderId === user.uid ? 'items-end' : ''}`}>
+                          <div className={`max-w-[75%] space-y-1 ${msg.senderId === user.uid ? 'items-end' : ''}`}>
                             <div className={`flex items-baseline gap-2 ${msg.senderId === user.uid ? 'flex-row-reverse' : ''}`}>
-                              <span className={`text-xs font-black ${msg.senderId === user.uid ? 'text-indigo-600' : 'text-slate-900'}`}>
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${msg.senderId === user.uid ? 'text-neutral-500' : 'text-black'}`}>
                                 {msg.senderName}
-                                {msg.senderId === ADMIN_EMAIL && <span className="ml-1 text-[8px] bg-amber-400 text-indigo-900 px-1 rounded">ADMIN</span>}
+                                {msg.senderId === ADMIN_EMAIL && <span className="ml-1 text-[8px] bg-black text-white px-1 rounded">ADMIN</span>}
                               </span>
-                              <span className="text-[10px] text-slate-400 font-bold uppercase">
+                              <span className="text-[9px] text-neutral-300 font-bold uppercase transition-opacity opacity-0 group-hover:opacity-100">
                                 {msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             <div className="group relative">
-                              <div className={`px-5 py-3 rounded-2xl shadow-md border leading-relaxed text-sm ${
+                              <div className={`px-5 py-3 rounded-3xl shadow-sm border leading-relaxed text-sm ${
                                 msg.senderId === user.uid 
-                                  ? 'bg-indigo-600 text-white rounded-tr-none border-transparent shadow-indigo-100' 
-                                  : 'bg-white text-slate-700 rounded-tl-none border-slate-100'
+                                  ? 'bg-black text-white rounded-tr-none border-transparent' 
+                                  : 'bg-neutral-50 text-black rounded-tl-none border-neutral-100'
                               }`}>
-                                {msg.text}
+                                {msg.attachment && (
+                                  <div className={`mb-3 p-3 rounded-2xl border flex flex-col gap-2 ${msg.senderId === user.uid ? 'bg-white/10 border-white/20' : 'bg-white border-neutral-200'}`}>
+                                    <div className="flex items-center gap-3">
+                                      {msg.attachment.type.startsWith('image/') ? (
+                                        <ImageIcon className="h-4 w-4" />
+                                      ) : msg.attachment.type.includes('pdf') ? (
+                                        <FileText className="h-4 w-4" />
+                                      ) : msg.attachment.type.includes('python') || msg.attachment.name.endsWith('.py') ? (
+                                        <Code2 className="h-4 w-4" />
+                                      ) : (
+                                        <Paperclip className="h-4 w-4" />
+                                      )}
+                                      <span className="text-[10px] font-black truncate max-w-[150px] uppercase tracking-tighter">{msg.attachment.name}</span>
+                                    </div>
+                                    {msg.attachment.type.startsWith('image/') && (
+                                      <img src={msg.attachment.url} alt="" className="max-h-64 rounded-xl object-contain bg-neutral-900/5 shadow-inner" />
+                                    )}
+                                    <a 
+                                      href={msg.attachment.url} 
+                                      download={msg.attachment.name}
+                                      className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-[9px] font-black tracking-[0.2em] uppercase transition-all ${
+                                        msg.senderId === user.uid ? 'bg-white text-black hover:bg-neutral-100' : 'bg-black text-white hover:bg-neutral-800'
+                                      }`}
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      DOWNLOAD FILE
+                                    </a>
+                                  </div>
+                                )}
+                                <div className="font-medium">{msg.text}</div>
+                                <div className={`mt-1 text-[8px] font-mono opacity-30 ${msg.senderId === user.uid ? 'text-right' : 'text-left'}`}>
+                                  {msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </div>
                               </div>
                               <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${
-                                msg.senderId === user.uid ? '-left-20' : '-right-20'
+                                msg.senderId === user.uid ? '-left-16' : '-right-16'
                               }`}>
                                 {isAdmin && (
                                   <>
                                     <button 
                                       onClick={() => handleWarnUser(msg.senderId)}
-                                      title="위험 감지 / 주의 주기"
-                                      className="p-2 rounded-full text-amber-400 hover:bg-amber-50"
+                                      className="p-2 rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-black transition-all"
                                     >
                                       <AlertTriangle className="h-4 w-4" />
                                     </button>
                                     <button 
                                       onClick={() => handleDeleteMessage(msg.id)}
-                                      className="p-2 rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                                      className="p-2 rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-red-500 transition-all"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </button>
