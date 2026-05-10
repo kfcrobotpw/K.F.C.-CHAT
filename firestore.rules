@@ -71,7 +71,7 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create: if isVerified() && userId == request.auth.uid && isValidUser(incoming());
       allow update: if isVerified() && (
-        (userId == request.auth.uid && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastSeen', 'realName', 'studentId', 'role', 'phoneNumber'])) ||
+        (userId == request.auth.uid && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastSeen', 'realName', 'studentId', 'role', 'phoneNumber', 'isExecutive'])) ||
         (isAdmin() && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastSeen', 'realName', 'studentId', 'role', 'isAdmin', 'isExecutive', 'warnings']))
       );
     }

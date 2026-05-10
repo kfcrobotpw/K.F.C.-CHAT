@@ -473,7 +473,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 text-indigo-600">
+      <div className="flex h-screen items-center justify-center bg-white text-black">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
@@ -676,18 +676,18 @@ export default function App() {
 
         {activeTab === 'chat' || activeTab === 'supervision' ? (
           <>
-            <div className="flex-1 overflow-y-auto p-8 lg:p-10 bg-slate-50 scroll-smooth" ref={scrollRef}>
+            <div className="flex-1 overflow-y-auto p-8 lg:p-10 bg-white scroll-smooth" ref={scrollRef}>
               <div className="flex flex-col gap-8 max-w-5xl mx-auto">
                 {!selectedRoom && activeTab === 'chat' ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-300 space-y-4 py-20">
+                  <div className="flex flex-col items-center justify-center h-full text-neutral-300 space-y-4 py-20">
                     <Bot className="h-16 w-16 opacity-20" />
                     <p className="font-black uppercase tracking-widest text-sm">대상을 선택하여 대화를 시작하세요</p>
-                    <button onClick={() => setShowRoomCreation(true)} className="px-6 py-2 bg-white border border-slate-200 rounded-full text-slate-400 font-bold hover:bg-slate-50 transition-colors">Start Chatting</button>
+                    <button onClick={() => setShowRoomCreation(true)} className="px-6 py-2 bg-white border border-neutral-200 rounded-full text-neutral-400 font-bold hover:bg-neutral-50 transition-colors">Start Chatting</button>
                   </div>
                 ) : (
                   <>
                     <div className="flex justify-center my-4">
-                      <span className="px-4 py-1 bg-white border border-slate-200 rounded-full text-[10px] text-slate-400 font-bold uppercase tracking-widest shadow-sm">
+                      <span className="px-4 py-1 bg-white border border-neutral-200 rounded-full text-[10px] text-neutral-400 font-bold uppercase tracking-widest shadow-sm">
                         {activeTab === 'supervision' ? 'Supervision Protocol Active' : 'End-to-End Encrypted'}
                       </span>
                     </div>
@@ -1056,27 +1056,27 @@ export default function App() {
         </AnimatePresence>
         <AnimatePresence>
           {editingMember && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8 border border-white"
+                className="w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-8 border border-white"
               >
                 <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">회원 정보 수정</h2>
-                  <button onClick={() => setEditingMember(null)} className="p-2 rounded-full hover:bg-slate-100 transition-colors">
-                    <X className="h-6 w-6 text-slate-400" />
+                  <h2 className="text-2xl font-black text-black tracking-tighter">회원 정보 수정</h2>
+                  <button onClick={() => setEditingMember(null)} className="p-3 rounded-2xl hover:bg-neutral-100 transition-colors">
+                    <X className="h-6 w-6 text-neutral-400" />
                   </button>
                 </div>
 
                 <form onSubmit={handleUpdateMember} className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-                      <img src={editingMember.photoURL} alt="" className="w-12 h-12 rounded-xl" />
+                    <div className="flex items-center gap-4 p-5 bg-neutral-50 rounded-3xl border border-neutral-100">
+                      <img src={editingMember.photoURL} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-sm" />
                       <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base Identity</p>
-                        <p className="text-slate-900 font-black">{editingMember.displayName}</p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Base Identity</p>
+                        <p className="text-black font-black">{editingMember.displayName}</p>
                       </div>
                     </div>
                     
